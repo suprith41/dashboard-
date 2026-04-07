@@ -17,6 +17,11 @@ from model import (
     score_positive_trend,
 )
 
+try:
+    from streamlit_lottie import st_lottie
+except Exception:  # pragma: no cover - optional UI dependency
+    st_lottie = None
+
 BASE_DIR = Path(__file__).parent
 FAVICON_PATH = BASE_DIR / "favicon.ico"
 PAGE_ICON = str(FAVICON_PATH) if FAVICON_PATH.exists() else "🏦"
@@ -48,6 +53,7 @@ ACCENT_PURPLE = "#8f7cf7"
 ACCENT_ORANGE = "#f5b13c"
 ACCENT_GREEN = "#67d17a"
 ACCENT_RED = "#ff6b6b"
+PLOTLY_CONFIG = {"displayModeBar": False, "responsive": True}
 BORROWER_TYPE_LABELS = {
     "small_trader": "MSME",
     "farmer": "Farmer",
@@ -61,24 +67,33 @@ def apply_dark_theme() -> None:
         f"""
         <style>
             .stApp {{
-                background: {THEME_BG};
+                background: #17181a;
                 color: {TEXT_PRIMARY};
-                font-family: "Avenir Next", "Segoe UI", sans-serif;
+                font-family: "Inter", "Roboto", "Segoe UI", sans-serif;
+            }}
+
+            [data-testid="stHeader"] {{
+                background-color: transparent !important;
+                backdrop-filter: none !important;
+                border-bottom: none !important;
+                z-index: 30 !important;
             }}
 
             .block-container {{
-                padding-top: 1rem;
-                padding-bottom: 2rem;
-                max-width: 1460px;
+                padding-top: 3.6rem;
+                padding-bottom: 0.8rem;
+                padding-left: 0.95rem;
+                padding-right: 0.95rem;
+                max-width: 1480px;
             }}
 
             [data-testid="stSidebar"] {{
-                background: {SIDEBAR_BG};
+                background: linear-gradient(180deg, #33206f 0%, #1f2558 32%, #111827 100%);
                 border-right: 1px solid {CARD_BORDER};
             }}
 
             [data-testid="stSidebar"] > div:first-child {{
-                background: {SIDEBAR_BG};
+                background: linear-gradient(180deg, #33206f 0%, #1f2558 32%, #111827 100%);
             }}
 
             [data-testid="stSidebar"] label,
@@ -91,9 +106,17 @@ def apply_dark_theme() -> None:
             [data-testid="stSidebar"] [data-baseweb="select"] > div,
             [data-testid="stSidebar"] [data-baseweb="popover"] > div,
             [data-testid="stSidebar"] [data-baseweb="tag"] {{
-                background: {CARD_BG};
-                border: 1px solid {CARD_BORDER};
+                background: rgba(19, 20, 27, 0.78);
+                border: 1px solid rgba(255,255,255,0.08);
                 border-radius: 14px;
+            }}
+
+            [data-testid="stSidebar"] button {{
+                background: rgba(255,255,255,0.07);
+                border: 1px solid rgba(255,255,255,0.08);
+                border-radius: 12px;
+                color: {TEXT_PRIMARY};
+                min-height: 2.55rem;
             }}
 
             [data-testid="stSidebar"] [data-baseweb="slider"] [role="slider"] {{
@@ -109,10 +132,10 @@ def apply_dark_theme() -> None:
             .hero-panel,
             .metric-card,
             .profile-card {{
-                background: {CARD_BG};
-                border: 1px solid {CARD_BORDER};
-                border-radius: 18px;
-                box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16);
+                background: #232426;
+                border: 1px solid rgba(255,255,255,0.07);
+                border-radius: 15px;
+                box-shadow: 0 0 0 1px rgba(255,255,255,0.02), 0 12px 32px rgba(0, 0, 0, 0.26);
             }}
 
             .hero-panel {{
@@ -129,6 +152,9 @@ def apply_dark_theme() -> None:
                 justify-content: space-between;
                 gap: 1rem;
                 margin-bottom: 1.15rem;
+                margin-top: 0.2rem;
+                position: relative;
+                z-index: 24;
             }}
 
             .header-eyebrow {{
@@ -156,6 +182,11 @@ def apply_dark_theme() -> None:
                 display: flex;
                 align-items: center;
                 gap: 0.65rem;
+                position: relative;
+                z-index: 26;
+                margin-top: 0.2rem;
+                padding-right: 0.15rem;
+                flex-wrap: wrap;
             }}
 
             .header-pill {{
@@ -166,12 +197,17 @@ def apply_dark_theme() -> None:
                 padding: 0.65rem 0.9rem;
                 font-size: 0.88rem;
                 font-weight: 600;
+                position: relative;
+                z-index: 27;
+                pointer-events: auto;
             }}
 
             .metric-card {{
-                padding: 1.25rem 1.3rem;
-                min-height: 142px;
-                background: {CARD_BG};
+                padding: 0;
+                min-height: 156px;
+                background: transparent;
+                border: none;
+                box-shadow: none;
             }}
 
             .metric-top {{
@@ -208,7 +244,7 @@ def apply_dark_theme() -> None:
 
             .metric-progress-track {{
                 width: 100%;
-                height: 5px;
+                height: 4px;
                 border-radius: 999px;
                 background: rgba(255, 255, 255, 0.06);
                 overflow: hidden;
@@ -304,11 +340,11 @@ def apply_dark_theme() -> None:
             }}
 
             .section-card {{
-                background: {CARD_BG};
-                border: 1px solid {CARD_BORDER};
-                border-radius: 18px;
-                box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16);
-                padding: 1.15rem 1.2rem 0.9rem 1.2rem;
+                background: #232426;
+                border: 1px solid rgba(255,255,255,0.07);
+                border-radius: 15px;
+                box-shadow: 0 0 0 1px rgba(255,255,255,0.02), 0 12px 32px rgba(0,0,0,0.26);
+                padding: 1.05rem 1.12rem 0.85rem 1.12rem;
             }}
 
             .section-card-header {{
@@ -316,7 +352,10 @@ def apply_dark_theme() -> None:
                 align-items: center;
                 justify-content: space-between;
                 gap: 1rem;
-                margin-bottom: 0.6rem;
+                margin-top: 0.15rem;
+                margin-bottom: 0.8rem;
+                position: relative;
+                z-index: 8;
             }}
 
             .section-card-title {{
@@ -361,10 +400,10 @@ def apply_dark_theme() -> None:
             }}
 
             .watchlist-shell {{
-                background: {CARD_BG};
-                border: 1px solid {CARD_BORDER};
-                border-radius: 18px;
-                box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16);
+                background: #232426;
+                border: 1px solid rgba(255,255,255,0.07);
+                border-radius: 15px;
+                box-shadow: 0 0 0 1px rgba(255,255,255,0.02), 0 12px 32px rgba(0,0,0,0.26);
                 overflow: hidden;
             }}
 
@@ -445,6 +484,59 @@ def apply_dark_theme() -> None:
 
             .watchlist-scroll {{
                 overflow-x: auto;
+            }}
+
+            [data-testid="stPlotlyChart"] {{
+                position: relative;
+                z-index: 2;
+                margin-top: 0.2rem;
+                margin-bottom: 0.9rem;
+            }}
+
+            [data-testid="stPlotlyChart"] > div {{
+                overflow: visible !important;
+            }}
+
+            .js-plotly-plot .plot-container,
+            .js-plotly-plot .svg-container {{
+                overflow: visible !important;
+            }}
+
+            .scan-indicator {{
+                position: fixed;
+                right: 1.2rem;
+                bottom: 1.1rem;
+                z-index: 999;
+                display: inline-flex;
+                align-items: center;
+                gap: 0.6rem;
+                padding: 0.7rem 0.95rem;
+                border-radius: 999px;
+                background: rgba(16, 17, 21, 0.82);
+                border: 1px solid rgba(143, 124, 247, 0.28);
+                box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+                backdrop-filter: blur(8px);
+            }}
+
+            .scan-dot {{
+                width: 10px;
+                height: 10px;
+                border-radius: 999px;
+                background: {ACCENT_PURPLE};
+                box-shadow: 0 0 0 0 rgba(143, 124, 247, 0.8);
+                animation: scanPulse 1.8s infinite;
+            }}
+
+            .scan-text {{
+                color: {TEXT_PRIMARY};
+                font-size: 0.84rem;
+                letter-spacing: 0.02em;
+            }}
+
+            @keyframes scanPulse {{
+                0% {{ box-shadow: 0 0 0 0 rgba(143,124,247,0.72); }}
+                70% {{ box-shadow: 0 0 0 12px rgba(143,124,247,0); }}
+                100% {{ box-shadow: 0 0 0 0 rgba(143,124,247,0); }}
             }}
         </style>
         """,
@@ -739,23 +831,72 @@ def render_metric_card(
     icon: str,
     accent_color: str,
     progress_pct: float,
+    target_value: float,
+    decimals: int = 0,
+    prefix: str = "",
+    suffix: str = "",
+    pulse: bool = False,
 ) -> None:
     progress_pct = max(0.0, min(float(progress_pct), 100.0))
-    st.markdown(
+    card_id = (
+        label.lower()
+        .replace(" ", "-")
+        .replace("(", "")
+        .replace(")", "")
+        .replace(".", "")
+    )
+    glow = (
+        "box-shadow: 0 0 0 1px rgba(255,255,255,0.03), 0 12px 30px rgba(0,0,0,0.28), "
+        f"0 0 26px {accent_color}44; animation: metricPulse 2.4s ease-in-out infinite;"
+        if pulse
+        else "box-shadow: 0 0 0 1px rgba(255,255,255,0.03), 0 12px 30px rgba(0,0,0,0.28);"
+    )
+    components.html(
         f"""
-        <div class="metric-card">
-            <div class="metric-top">
-                <div class="metric-icon" style="color:{accent_color};">{icon}</div>
-                <div class="metric-label">{label}</div>
+        <style>
+            @keyframes metricPulse {{
+                0% {{ box-shadow: 0 0 0 1px rgba(255,255,255,0.03), 0 12px 30px rgba(0,0,0,0.28), 0 0 12px {accent_color}22; }}
+                50% {{ box-shadow: 0 0 0 1px rgba(255,255,255,0.03), 0 12px 30px rgba(0,0,0,0.28), 0 0 28px {accent_color}66; }}
+                100% {{ box-shadow: 0 0 0 1px rgba(255,255,255,0.03), 0 12px 30px rgba(0,0,0,0.28), 0 0 12px {accent_color}22; }}
+            }}
+        </style>
+        <div class="metric-card" style="background:#232426;border:1px solid rgba(255,255,255,0.07);border-radius:15px;padding:1.15rem 1.15rem 1rem 1.15rem;min-height:156px;{glow}">
+            <div class="metric-top" style="display:flex;align-items:center;gap:0.55rem;margin-bottom:0.9rem;">
+                <div class="metric-icon" style="color:{accent_color};font-size:0.95rem;">{icon}</div>
+                <div class="metric-label" style="color:{TEXT_MUTED};font-size:0.96rem;">{label}</div>
             </div>
-            <div class="metric-value">{value}</div>
-            <div class="metric-progress-track">
-                <div class="metric-progress-fill" style="width: {progress_pct:.1f}%; background: {accent_color};"></div>
+            <div id="metric-{card_id}" class="metric-value" style="color:{TEXT_PRIMARY};font-size:2.28rem;font-weight:700;margin-bottom:0.75rem;">{value}</div>
+            <div class="metric-progress-track" style="width:100%;height:4px;border-radius:999px;background:rgba(255,255,255,0.06);overflow:hidden;margin:0.05rem 0 0.72rem 0;">
+                <div class="metric-progress-fill" style="width:{progress_pct:.1f}%;height:100%;border-radius:999px;background:{accent_color};"></div>
             </div>
-            <div class="metric-footnote">{footnote}</div>
+            <div class="metric-footnote" style="color:{TEXT_MUTED};font-size:0.9rem;">{footnote}</div>
         </div>
+        <script>
+            const target = {target_value:.6f};
+            const decimals = {decimals};
+            const prefix = {prefix!r};
+            const suffix = {suffix!r};
+            const el = document.getElementById("metric-{card_id}");
+            const formatter = new Intl.NumberFormat('en-IN', {{
+                minimumFractionDigits: decimals,
+                maximumFractionDigits: decimals
+            }});
+            const duration = 1200;
+            const start = performance.now();
+
+            function step(now) {{
+                const progress = Math.min((now - start) / duration, 1);
+                const eased = 1 - Math.pow(1 - progress, 3);
+                const value = target * eased;
+                el.textContent = prefix + formatter.format(value) + suffix;
+                if (progress < 1) {{
+                    requestAnimationFrame(step);
+                }}
+            }}
+            requestAnimationFrame(step);
+        </script>
         """,
-        unsafe_allow_html=True,
+        height=170,
     )
 
 
@@ -771,12 +912,62 @@ def render_top_header() -> None:
             </div>
             <div class="header-actions">
                 <div class="header-pill">{today_label}</div>
-                <div class="header-pill">Deploy</div>
             </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
+
+
+def render_scanning_indicator() -> None:
+    if st_lottie:
+        lottie_payload = {
+            "v": "5.7.4",
+            "fr": 30,
+            "ip": 0,
+            "op": 90,
+            "w": 120,
+            "h": 120,
+            "nm": "scan",
+            "ddd": 0,
+            "assets": [],
+            "layers": [
+                {
+                    "ddd": 0,
+                    "ind": 1,
+                    "ty": 4,
+                    "nm": "ring",
+                    "ks": {
+                        "o": {"a": 0, "k": 100},
+                        "r": {"a": 1, "k": [{"t": 0, "s": [0]}, {"t": 90, "s": [360]}]},
+                        "p": {"a": 0, "k": [60, 60, 0]},
+                        "a": {"a": 0, "k": [0, 0, 0]},
+                        "s": {"a": 1, "k": [{"t": 0, "s": [80, 80, 100]}, {"t": 45, "s": [100, 100, 100]}, {"t": 90, "s": [80, 80, 100]}]},
+                    },
+                    "shapes": [
+                        {"ty": "el", "p": {"a": 0, "k": [0, 0]}, "s": {"a": 0, "k": [70, 70]}, "nm": "ellipse"},
+                        {"ty": "st", "c": {"a": 0, "k": [0.56, 0.49, 0.97, 1]}, "o": {"a": 0, "k": 100}, "w": {"a": 0, "k": 6}},
+                        {"ty": "tr", "p": {"a": 0, "k": [0, 0]}, "a": {"a": 0, "k": [0, 0]}, "s": {"a": 0, "k": [100, 100]}, "r": {"a": 0, "k": 0}, "o": {"a": 0, "k": 100}}
+                    ],
+                    "ip": 0,
+                    "op": 90,
+                    "st": 0,
+                    "bm": 0,
+                }
+            ],
+        }
+        with st.container():
+            st_lottie(lottie_payload, height=58, width=58, key="stelvora_scan")
+    else:
+        st.markdown(
+            """
+            <div class="scan-indicator">
+                <span class="scan-dot"></span>
+                <span class="scan-text">Scanning live portfolio signals...</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
 
 def render_section_card_header(title: str, chip_label: str = "This Week") -> None:
@@ -855,7 +1046,7 @@ def build_risk_mix_donut_chart(df: pd.DataFrame) -> go.Figure:
                 hole=0.72,
                 sort=False,
                 direction="clockwise",
-                marker=dict(colors=[ACCENT_GREEN, ACCENT_ORANGE, ACCENT_PURPLE], line=dict(color=CARD_BG, width=4)),
+                marker=dict(colors=["#10B981", "#F59E0B", "#EF4444"], line=dict(color=CARD_BG, width=4)),
                 textinfo="none",
                 hovertemplate="%{label}: %{value:,}<extra></extra>",
             )
@@ -866,6 +1057,9 @@ def build_risk_mix_donut_chart(df: pd.DataFrame) -> go.Figure:
         x=0.5,
         y=0.5,
         showarrow=False,
+        xanchor="center",
+        yanchor="middle",
+        align="center",
         font=dict(color=TEXT_PRIMARY, size=28),
     )
     fig.update_layout(
@@ -902,7 +1096,7 @@ def build_watchlist_html_table(watchlist: pd.DataFrame) -> str:
             margin: 0;
             background: transparent;
             color: {TEXT_PRIMARY};
-            font-family: "Avenir Next", "Segoe UI", sans-serif;
+            font-family: "Inter", "Roboto", "Segoe UI", sans-serif;
         }}
 
         .watchlist-shell {{
@@ -1104,7 +1298,6 @@ def borrower_type_breakdown_chart(df: pd.DataFrame) -> go.Figure:
         .size()
         .reset_index(name="count")
     )
-
     fig = px.bar(
         grouped,
         x="borrower_segment",
@@ -1112,29 +1305,46 @@ def borrower_type_breakdown_chart(df: pd.DataFrame) -> go.Figure:
         color="portfolio_status",
         barmode="group",
         text="count",
-        color_discrete_map={"Healthy": ACCENT_GREEN, "Stressed": ACCENT_ORANGE},
-        template="plotly_dark",
+        color_discrete_map={
+            "Healthy": "#7B61FF",
+            "Stressed": "#FF9F43",
+        },
+        category_orders={"portfolio_status": ["Healthy", "Stressed"]},
         labels={
             "borrower_segment": "Borrower Type",
             "count": "Borrower Count",
             "portfolio_status": "Status",
         },
+        template="plotly_dark",
     )
-    fig.update_traces(textposition="outside")
+    fig.update_traces(
+        texttemplate="%{text:,}",
+        textposition="outside",
+        textfont=dict(color="#ffffff", size=13, family="Inter, Roboto, sans-serif"),
+        cliponaxis=False,
+        marker=dict(line=dict(color="rgba(255,255,255,0.08)", width=1)),
+    )
+    fig.for_each_trace(
+        lambda trace: trace.update(
+            hovertemplate=f"<b>%{{x}}</b><br>{trace.name}: %{{y:,}}<extra></extra>"
+        )
+    )
     fig.update_layout(
         height=350,
         margin=dict(l=10, r=10, t=10, b=10),
-        legend_title_text="",
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
+        barmode="group",
         xaxis=dict(title="", tickfont=dict(color=TEXT_MUTED), showgrid=False),
         yaxis=dict(
             title="Borrower Count",
             tickfont=dict(color=TEXT_MUTED),
             gridcolor="rgba(255,255,255,0.06)",
             zeroline=False,
+            automargin=True,
         ),
         legend=dict(orientation="h", y=1.08, x=0, bgcolor="rgba(0,0,0,0)", font=dict(color=TEXT_MUTED)),
+        hoverlabel=dict(bgcolor="#1f2023", bordercolor="rgba(255,255,255,0.08)", font=dict(color=TEXT_PRIMARY)),
     )
     return fig
 
@@ -1151,8 +1361,9 @@ def borrower_trend_chart(row: pd.Series) -> go.Figure:
             y=incomes,
             name="Income",
             mode="lines+markers",
-            line=dict(color="#38bdf8", width=3),
-            marker=dict(size=8),
+            line=dict(color="#7c80ff", width=3),
+            marker=dict(size=9, color="#7c80ff", line=dict(color="#b6c1ff", width=1)),
+            hovertemplate="<b>%{x}</b><br>Income: ₹%{y:,.0f}<extra></extra>",
         )
     )
     fig.add_trace(
@@ -1161,8 +1372,9 @@ def borrower_trend_chart(row: pd.Series) -> go.Figure:
             y=balances,
             name="Balance",
             mode="lines+markers",
-            line=dict(color="#f59e0b", width=3),
-            marker=dict(size=8),
+            line=dict(color="#f5b13c", width=3),
+            marker=dict(size=9, color="#f5b13c", line=dict(color="#ffdf99", width=1)),
+            hovertemplate="<b>%{x}</b><br>Balance: ₹%{y:,.0f}<extra></extra>",
         )
     )
     fig.update_layout(
@@ -1173,7 +1385,9 @@ def borrower_trend_chart(row: pd.Series) -> go.Figure:
         yaxis_title="Amount",
         legend_title_text="",
         paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(8, 16, 30, 0.62)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        hovermode="x unified",
+        hoverlabel=dict(bgcolor="#1f2023", bordercolor="rgba(255,255,255,0.08)", font=dict(color=TEXT_PRIMARY)),
     )
     return fig
 
@@ -1311,23 +1525,31 @@ def build_prediction_timeline_chart(
             y=timeline_df["loan_health_score"],
             mode="lines+markers",
             name="Loan Health Score",
-            line=dict(color="#38bdf8", width=3),
-            marker=dict(size=9),
+            line=dict(color=ACCENT_PURPLE, width=3),
+            marker=dict(size=10, color="#8f7cf7", line=dict(color="#d4d0ff", width=1)),
+            hovertemplate="<b>Month %{x}</b><br>Loan Health Score: %{y:.2f}<extra></extra>",
         )
     )
     fig.add_hline(
         y=65,
         line_dash="dash",
-        line_color="#ef4444",
+        line_color=ACCENT_ORANGE,
         annotation_text="Early Warning Threshold",
         annotation_position="top left",
     )
 
     if stress_month is not None:
+        fig.add_vrect(
+            x0=stress_month - 0.08,
+            x1=stress_month + 0.08,
+            fillcolor="rgba(245, 177, 60, 0.14)",
+            line_width=0,
+            layer="below",
+        )
         fig.add_vline(
             x=stress_month,
             line_dash="dash",
-            line_color="#f59e0b",
+            line_color=ACCENT_ORANGE,
             annotation_text="Stelvora detects stress here",
             annotation_position="top right",
         )
@@ -1341,8 +1563,20 @@ def build_prediction_timeline_chart(
                 x=[default_month],
                 y=[default_score],
                 mode="markers",
+                name="Default Pulse",
+                marker=dict(size=26, color="rgba(255, 107, 107, 0.14)", line=dict(color="rgba(255,107,107,0.22)", width=2)),
+                hoverinfo="skip",
+                showlegend=False,
+            )
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=[default_month],
+                y=[default_score],
+                mode="markers",
                 name="Default Month",
-                marker=dict(symbol="x", size=14, color="#ef4444", line=dict(width=2)),
+                marker=dict(symbol="x", size=16, color=ACCENT_RED, line=dict(width=2)),
+                hovertemplate="<b>Month %{x}</b><br>Default recorded<extra></extra>",
             )
         )
 
@@ -1359,7 +1593,9 @@ def build_prediction_timeline_chart(
         yaxis=dict(title="Loan Health Score", range=[0, 100]),
         legend_title_text="",
         paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(8, 16, 30, 0.62)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        hovermode="x unified",
+        hoverlabel=dict(bgcolor="#1f2023", bordercolor="rgba(255,255,255,0.08)", font=dict(color=TEXT_PRIMARY)),
     )
     return fig
 
@@ -1479,8 +1715,10 @@ def main() -> None:
     red_alert_progress = (
         (red_alert_exposure / total_portfolio_value) * 100 if total_portfolio_value else 0.0
     )
+    red_alert_exposure_cr = red_alert_exposure / 1_00_00_000 if red_alert_exposure else 0.0
 
     render_top_header()
+    render_scanning_indicator()
 
     metric_columns = st.columns(4)
     with metric_columns[0]:
@@ -1489,8 +1727,10 @@ def main() -> None:
             f"{total_active_loans:,}",
             "Borrowers currently tracked in the portfolio",
             "🏦",
-            "#22c55e",
+            ACCENT_GREEN,
             100.0,
+            target_value=float(total_active_loans),
+            decimals=0,
         )
     with metric_columns[1]:
         render_metric_card(
@@ -1500,6 +1740,8 @@ def main() -> None:
             "⚠️",
             ACCENT_ORANGE,
             stressed_progress,
+            target_value=float(stressed_loans),
+            decimals=0,
         )
     with metric_columns[2]:
         render_metric_card(
@@ -1509,25 +1751,40 @@ def main() -> None:
             "📊",
             ACCENT_PURPLE,
             portfolio_health_score,
+            target_value=float(portfolio_health_score),
+            decimals=1,
         )
     with metric_columns[3]:
         render_metric_card(
             "Red Alert Exposure (Rs Cr)",
-            format_compact_inr(red_alert_exposure),
+            f"₹{red_alert_exposure_cr:.2f} Cr",
             "Total loan amount for borrowers visible in the active intervention cohort",
             "🚨",
             ACCENT_RED,
             red_alert_progress,
+            target_value=float(red_alert_exposure_cr),
+            decimals=2,
+            prefix="₹",
+            suffix=" Cr",
+            pulse=True,
         )
 
     chart_columns = st.columns(2)
     with chart_columns[0]:
         render_section_card_header("Healthy vs. Stressed", "By Borrower Type")
         render_risk_pills()
-        st.plotly_chart(borrower_type_breakdown_chart(visible_portfolio), use_container_width=True)
+        st.plotly_chart(
+            borrower_type_breakdown_chart(visible_portfolio),
+            use_container_width=True,
+            config=PLOTLY_CONFIG,
+        )
     with chart_columns[1]:
         render_section_card_header("Risk Mix", "Current Portfolio")
-        st.plotly_chart(build_risk_mix_donut_chart(visible_portfolio), use_container_width=True)
+        st.plotly_chart(
+            build_risk_mix_donut_chart(visible_portfolio),
+            use_container_width=True,
+            config=PLOTLY_CONFIG,
+        )
 
     st.markdown('<div class="section-label">Priority Watchlist</div>', unsafe_allow_html=True)
     watchlist_filter = st.selectbox(
@@ -1601,7 +1858,11 @@ def main() -> None:
 
     deep_dive_columns = st.columns((1.6, 1))
     with deep_dive_columns[0]:
-        st.plotly_chart(borrower_trend_chart(borrower), use_container_width=True)
+        st.plotly_chart(
+            borrower_trend_chart(borrower),
+            use_container_width=True,
+            config=PLOTLY_CONFIG,
+        )
 
     with deep_dive_columns[1]:
         st.markdown(
@@ -1636,6 +1897,7 @@ def main() -> None:
     st.plotly_chart(
         build_prediction_timeline_chart(timeline_df, stress_month, default_month),
         use_container_width=True,
+        config=PLOTLY_CONFIG,
     )
     if default_month is not None:
         if stress_month is None or months_early <= 0:
@@ -1655,7 +1917,11 @@ def main() -> None:
     )
 
     st.markdown('<div class="section-label">Score Breakdown</div>', unsafe_allow_html=True)
-    st.plotly_chart(build_score_breakdown_chart(borrower), use_container_width=True)
+    st.plotly_chart(
+        build_score_breakdown_chart(borrower),
+        use_container_width=True,
+        config=PLOTLY_CONFIG,
+    )
 
     st.markdown('<div class="section-label">Before vs After Stelvora</div>', unsafe_allow_html=True)
     comparison_columns = st.columns(2)
