@@ -8,6 +8,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
+import streamlit.components.v1 as components
 from fpdf import FPDF
 from model import (
     score_expense_pressure,
@@ -895,6 +896,106 @@ def build_watchlist_html_table(watchlist: pd.DataFrame) -> str:
         "Green": ("rgba(103, 209, 122, 0.18)", "#d8ffe0"),
     }
 
+    watchlist_styles = f"""
+    <style>
+        body {{
+            margin: 0;
+            background: transparent;
+            color: {TEXT_PRIMARY};
+            font-family: "Avenir Next", "Segoe UI", sans-serif;
+        }}
+
+        .watchlist-shell {{
+            background: {CARD_BG};
+            border: 1px solid {CARD_BORDER};
+            border-radius: 18px;
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16);
+            overflow: hidden;
+        }}
+
+        .watchlist-scroll {{
+            overflow-x: auto;
+        }}
+
+        .watchlist-table {{
+            width: 100%;
+            border-collapse: collapse;
+        }}
+
+        .watchlist-table thead th {{
+            text-align: left;
+            font-size: 0.8rem;
+            color: {TEXT_MUTED};
+            font-weight: 600;
+            padding: 0.95rem 1rem;
+            border-bottom: 1px solid {CARD_BORDER};
+            background: #2a2a2c;
+            white-space: nowrap;
+        }}
+
+        .watchlist-table tbody td {{
+            padding: 0.95rem 1rem;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            color: {TEXT_PRIMARY};
+            font-size: 0.9rem;
+            vertical-align: middle;
+            white-space: nowrap;
+        }}
+
+        .watchlist-table tbody tr:hover {{
+            background: rgba(255,255,255,0.02);
+        }}
+
+        .watchlist-badge {{
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 74px;
+            padding: 0.3rem 0.62rem;
+            border-radius: 999px;
+            font-size: 0.76rem;
+            font-weight: 700;
+        }}
+
+        .watchlist-prob {{
+            min-width: 180px;
+        }}
+
+        .watchlist-prob-label {{
+            color: {TEXT_MUTED};
+            font-size: 0.76rem;
+            margin-bottom: 0.35rem;
+        }}
+
+        .watchlist-prob-track {{
+            width: 100%;
+            height: 8px;
+            background: #1f1f21;
+            border-radius: 999px;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.05);
+        }}
+
+        .watchlist-prob-fill {{
+            height: 100%;
+            border-radius: 999px;
+        }}
+
+        .watchlist-action {{
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.45rem 0.8rem;
+            border-radius: 10px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #111318;
+            background: linear-gradient(135deg, {ACCENT_PURPLE}, {ACCENT_ORANGE});
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.18);
+        }}
+    </style>
+    """
+
     rows = []
     for _, row in watchlist.iterrows():
         risk_bucket = str(row["risk_bucket"])
@@ -937,7 +1038,8 @@ def build_watchlist_html_table(watchlist: pd.DataFrame) -> str:
         )
 
     return (
-        """
+        watchlist_styles
+        + """
         <div class="watchlist-shell">
             <div class="watchlist-scroll">
                 <table class="watchlist-table">
@@ -1460,9 +1562,10 @@ def main() -> None:
         .rename(columns={"borrower_segment": "borrower_type"})
         .sort_values("loan_health_score", ascending=True)
         .reset_index(drop=True)
-    )
+        )
     st.markdown(f"Showing **{len(watchlist):,}** borrowers")
-    st.markdown(build_watchlist_html_table(watchlist), unsafe_allow_html=True)
+    watchlist_html = build_watchlist_html_table(watchlist)
+    components.html(watchlist_html, height=500, scrolling=True)
 
     st.markdown('<div class="section-label">Executive Report</div>', unsafe_allow_html=True)
     report_columns = st.columns((1.4, 1))
