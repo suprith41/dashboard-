@@ -1533,7 +1533,7 @@ def build_prediction_timeline_chart(
     fig.add_hline(
         y=65,
         line_dash="dash",
-        line_color=ACCENT_ORANGE,
+        line_color=ACCENT_RED,
         annotation_text="Early Warning Threshold",
         annotation_position="top left",
     )
@@ -1603,12 +1603,22 @@ def build_prediction_timeline_chart(
 def detect_early_warning_month(timeline_df: pd.DataFrame) -> int | None:
     scores = timeline_df["loan_health_score"].tolist()
     months = timeline_df["month_number"].tolist()
+    if not scores:
+        return None
+
+    baseline_score = scores[0]
 
     for index in range(1, len(scores)):
-        score_drop = scores[index - 1] - scores[index]
-        if scores[index] < 65 and score_drop > 8:
+        score_drop_from_month1 = baseline_score - scores[index]
+        if score_drop_from_month1 > 15:
             return int(months[index])
     return None
+
+
+def format_detection_gap(months_early: int) -> str:
+    if months_early == 1:
+        return "1 month early"
+    return f"{months_early} months early"
 
 
 def build_score_breakdown_chart(row: pd.Series) -> go.Figure:
@@ -1820,7 +1830,31 @@ def main() -> None:
         .sort_values("loan_health_score", ascending=True)
         .reset_index(drop=True)
         )
-    st.markdown(f"Showing **{len(watchlist):,}** borrowers")
+    watchlist_control_cols = st.columns((1.15, 1.45, 0.7))
+    with watchlist_control_cols[0]:
+        st.markdown(f"Showing **{len(watchlist):,}** borrowers")
+    with watchlist_control_cols[1]:
+        watchlist_borrower_options = watchlist["borrower_id"].tolist()
+        intervention_target = st.selectbox(
+            "Trigger intervention for borrower",
+            watchlist_borrower_options if watchlist_borrower_options else ["No borrowers available"],
+            disabled=not bool(watchlist_borrower_options),
+            key="watchlist_intervention_target",
+        )
+    with watchlist_control_cols[2]:
+        st.markdown("<div style='height: 1.9rem;'></div>", unsafe_allow_html=True)
+        if st.button(
+            "Intervention",
+            key="watchlist_intervention_button",
+            disabled=not bool(watchlist_borrower_options),
+            use_container_width=True,
+        ):
+            st.toast(
+                (
+                    f"✅ WhatsApp intervention triggered for {intervention_target} — "
+                    "EMI split option sent in regional language. Stage 1 of 6 escalation ladder activated."
+                )
+            )
     watchlist_html = build_watchlist_html_table(watchlist)
     components.html(watchlist_html, height=500, scrolling=True)
 
@@ -1932,9 +1966,9 @@ def main() -> None:
     )
     left_principal = float(borrower["loan_amount"]) if default_month is not None else 0.0
     right_detection = (
-        f"{months_early} months early"
+        format_detection_gap(months_early)
         if default_month is not None and stress_month is not None
-        else "0 months early"
+        else format_detection_gap(0)
     )
 
     with comparison_columns[0]:
